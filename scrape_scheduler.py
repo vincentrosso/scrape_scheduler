@@ -43,7 +43,7 @@ elif ENV_HOST == 'stage.vanguardds.com':
                 'OPTIONS': {'autocommit': True,}
             }
         },
-        TIME_ZONE = 'UTC'
+        TIME_ZONE = 'US/Pacific'
     )
 
 elif ENV_HOST == 'work.vanguardds.com':
@@ -59,7 +59,7 @@ elif ENV_HOST == 'work.vanguardds.com':
                 'OPTIONS': {'autocommit': True,}
             }
         },
-        TIME_ZONE = 'UTC'
+        TIME_ZONE = 'US/Pacific'
     )
 
 elif ENV_HOST == 'atisearch.com':
@@ -75,7 +75,7 @@ elif ENV_HOST == 'atisearch.com':
                 'OPTIONS': {'autocommit': True,}
             }
         },
-        TIME_ZONE = 'UTC'
+        TIME_ZONE = 'US/Pacific'
     )
 
 from scrapeService.copied_models import ScheduledScrape
