@@ -116,6 +116,8 @@ def print_help():
 
 
 if __name__ == "__main__":
+    start_time = datetime.now()
+
     #  VERY basic options parsing
     if len(sys.argv) >= 2:
         for arg in sys.argv[1:]:
@@ -160,9 +162,6 @@ if __name__ == "__main__":
         datefmt=TIMESTAMP_FORMAT
     )
 
-    start_time = datetime.now()
-
-    print "Grabbing scheduled scrapes..."
     scheduled_scrapes = ScheduledScrape.objects.filter(
         scrapesource__is_enabled=True
     ).exclude(
@@ -225,3 +224,5 @@ if __name__ == "__main__":
         scheduled_scrape.last_run = start_time
         scheduled_scrape.last_message = message
         scheduled_scrape.save()
+
+    log(logging.INFO, "Done checking scheduled scrapes")
