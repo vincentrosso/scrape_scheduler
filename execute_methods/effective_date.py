@@ -13,6 +13,9 @@ def post_request_execute(log, scheduled_scrape, response):
     response_json = response.json()
     log(logging.DEBUG, "JSON response: {0}".format(response_json), scheduled_scrape)
 
+    if response_json is None:
+        return "Blank response from scrape.  Request: {0}  Response: {1}".format(response.url, response)
+
     if response_json.get('status') != 'OK':
         return "Invalid status returned (not OK): {0}".format(response_json.get('status'))
 
