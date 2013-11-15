@@ -4,22 +4,23 @@ import sys
 import logging
 from datetime import date
 
+from scrapeService.copied_models import ScheduledScrape
 from vdsWorkPortal.copied_models import CountyDataSourceIndexRange
 
 def pre_request_execute(log, scheduled_scrape):
-    pass
+    return ScheduledScrape.UNKNOWN
 
 def post_request_execute(log, scheduled_scrape, response):
     response_json = response.json()
     log(logging.DEBUG, "JSON response: {0}".format(response_json), scheduled_scrape)
 
     if response_json is None:
-        m = "Blank response from scrape.  Request: {0}  Response: {1}".format(response.url, response)
+        m = "Blank response from scrape.  Request: {0}  Response: {1}  Body: {2}".format(response.url, response, response.text)
         log(logging.ERROR, m, scheduled_scrape)
-        return m
+        return (ScheduledScrape.ERROR, m)
 
     if response_json.get('status') != 'OK':
-        return "Invalid status returned (not OK): {0}".format(response_json.get('status'))
+        return (ScheduledScrape.ERROR, "Invalid status returned (not OK): {0}".format(response_json.get('status')))
 
     data = response_json.get('data', [{}])
     if isinstance(data, dict):
@@ -55,7 +56,7 @@ def post_request_execute(log, scheduled_scrape, response):
                 cdsir.effective_date_exact = new_date
                 log(logging.DEBUG, "Setting CountyDataSourceIndexRange #{0}'s effective_date_exact to {1}".format(cdsir.pk, cdsir.effective_date_exact), scheduled_scrape)
             except:
-                return "Unparseable date '{0}': {1}".format(data_item, sys.exc_info())
+                return (ScheduledScrape.WARNING, "Unparseable date '{0}': {1}".format(data_item, sys.exc_info()))
             cdsir.save()
 
-    return "Success"
+    return (ScheduledScrape.SUCCESS, "Success")
