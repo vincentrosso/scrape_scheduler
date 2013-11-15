@@ -1,5 +1,6 @@
+#!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.1'
+__version__ = '0.2'
 
 import sys
 import socket
@@ -42,7 +43,7 @@ elif ENV_HOST == 'stage.vanguardds.com':
                 'OPTIONS': {'autocommit': True,}
             }
         },
-        TIME_ZONE = 'UTC'
+        TIME_ZONE = 'US/Pacific'
     )
 
 elif ENV_HOST == 'work.vanguardds.com':
@@ -58,7 +59,7 @@ elif ENV_HOST == 'work.vanguardds.com':
                 'OPTIONS': {'autocommit': True,}
             }
         },
-        TIME_ZONE = 'UTC'
+        TIME_ZONE = 'US/Pacific'
     )
 
 elif ENV_HOST == 'atisearch.com':
@@ -74,7 +75,7 @@ elif ENV_HOST == 'atisearch.com':
                 'OPTIONS': {'autocommit': True,}
             }
         },
-        TIME_ZONE = 'UTC'
+        TIME_ZONE = 'US/Pacific'
     )
 
 from scrapeService.copied_models import ScheduledScrape
@@ -115,6 +116,8 @@ def print_help():
 
 
 if __name__ == "__main__":
+    start_time = datetime.now()
+
     #  VERY basic options parsing
     if len(sys.argv) >= 2:
         for arg in sys.argv[1:]:
@@ -159,9 +162,6 @@ if __name__ == "__main__":
         datefmt=TIMESTAMP_FORMAT
     )
 
-    start_time = datetime.now()
-
-    print "Grabbing scheduled scrapes..."
     scheduled_scrapes = ScheduledScrape.objects.filter(
         scrapesource__is_enabled=True
     ).exclude(
@@ -173,7 +173,8 @@ if __name__ == "__main__":
     for scheduled_scrape in scheduled_scrapes:
         # If this is a time-of-day-based scrape and the last time it was run is
         # between that time and now, then we can skip this scrape
-        if scheduled_scrape.time_of_day and scheduled_scrape.last_run:
+        if scheduled_scrape.last_status != ScheduledScrape.ERROR and \
+                scheduled_scrape.time_of_day and scheduled_scrape.last_run:
             last_run_tod = datetime.combine(scheduled_scrape.last_run.date(), scheduled_scrape.time_of_day)
             now_tod = datetime.combine(datetime.now().date(), scheduled_scrape.time_of_day)
             next_run_tod = None
@@ -187,23 +188,29 @@ if __name__ == "__main__":
 
         # If this is a frequency-based scrape and we last ran it more
         # recently than the frequency, then we can skip this scrape
-        if scheduled_scrape.frequency and scheduled_scrape.last_run and datetime.now() - scheduled_scrape.last_run < scheduled_scrape.frequency_timedelta:
+        if  scheduled_scrape.last_status != ScheduledScrape.ERROR and \
+                scheduled_scrape.frequency and scheduled_scrape.last_run and datetime.now() - scheduled_scrape.last_run < scheduled_scrape.frequency_timedelta:
             log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, (datetime.now() - scheduled_scrape.last_run).total_seconds(), scheduled_scrape.frequency_timedelta.total_seconds(), scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta), scheduled_scrape)
             continue
 
         log(logging.INFO, "Running scrape", scheduled_scrape)
 
         message = ''
+        status = ScheduledScrape.UNKNOWN
         module = None
         if scheduled_scrape.processing_module and not sys.modules.has_key(scheduled_scrape.processing_module):
             module = __import__('execute_methods.{0}'.format(scheduled_scrape.processing_module), fromlist=[''])
 
         if module and hasattr(module, 'pre_request_execute'):
             try:
-                module.pre_request_execute(log, scheduled_scrape)
+                s = module.pre_request_execute(log, scheduled_scrape)
+                if s != ScheduledScrape.UNKNOWN:
+                    status = s
             except:
+                log(logging.WARNING, "pre_request_execute failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
                 scheduled_scrape.last_run = start_time
                 scheduled_scrape.last_message = str(sys.exc_info())
+                scheduled_scrape.last_status = ScheduledScrape.WARNING
                 scheduled_scrape.save()
                 continue
 
@@ -214,11 +221,16 @@ if __name__ == "__main__":
 
         if module and hasattr(module, 'post_request_execute'):
             try:
-                message = module.post_request_execute(log, scheduled_scrape, response)
+                status, message = module.post_request_execute(log, scheduled_scrape, response)
             except:
+                log(logging.WARNING, "post_request_execute failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
                 message = str(sys.exc_info())
+                status = ScheduledScrape.WARNING
 
         # Use the cached datetime.now() so that it won't get screwed up with time_of_day execution
         scheduled_scrape.last_run = start_time
         scheduled_scrape.last_message = message
+        scheduled_scrape.last_status = status
         scheduled_scrape.save()
+
+    log(logging.INFO, "Done checking scheduled scrapes")

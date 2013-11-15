@@ -5,6 +5,17 @@ from django.db import models
 from vdsWorkPortal.copied_models import ScrapeSource
 
 class ScheduledScrape(models.Model):
+    UNKNOWN = 0
+    SUCCESS = 1
+    WARNING = 2
+    ERROR = 3
+    STATUS_CHOICES = (
+        (UNKNOWN, 'Unknown'),
+        (SUCCESS, 'Success'),
+        (WARNING, 'Warning'),
+        (ERROR, 'Error')
+    )
+
     scrapesource = models.ForeignKey(ScrapeSource, verbose_name='Scrape Source')
     _time_of_day = models.TimeField(verbose_name='Time of day to run', db_column='time_of_day', default=None, blank=True, null=True)
     _frequency = models.BigIntegerField(verbose_name='Frequency to run, in seconds', db_column='frequency', default=None, blank=True, null=True)
@@ -12,6 +23,7 @@ class ScheduledScrape(models.Model):
     parameters = models.TextField(verbose_name='Parameters', default='', blank=True)
     last_run = models.DateTimeField(verbose_name='Last time this scrape was run', default=None, null=True)
     last_message = models.TextField(verbose_name='Message from the most-recent run', default='', blank=True)
+    last_status = models.PositiveSmallIntegerField(verbose_name='Status from most-recent run', default=UNKNOWN, choices=STATUS_CHOICES)
 
     @property
     def time_of_day(self):
