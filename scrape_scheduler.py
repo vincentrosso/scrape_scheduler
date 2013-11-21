@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.2'
+__version__ = '0.2a'
 
 import sys
 import socket
@@ -8,7 +8,9 @@ import logging
 import uuid
 import requests
 import re
-from datetime import datetime, timedelta
+import pytz
+import os
+from datetime import datetime, timedelta, time
 
 ENV_HOST = socket.gethostname()
 
@@ -79,6 +81,7 @@ elif ENV_HOST == 'atisearch.com':
     )
 
 from scrapeService.copied_models import ScheduledScrape
+tz = pytz.timezone(settings.TIME_ZONE)
 
 # Set up basic defaults
 DRY_RUN = False
@@ -116,7 +119,7 @@ def print_help():
 
 
 if __name__ == "__main__":
-    start_time = datetime.now()
+    start_time = datetime.now(tz)
 
     #  VERY basic options parsing
     if len(sys.argv) >= 2:
@@ -155,6 +158,7 @@ if __name__ == "__main__":
                 print "Unknown argument passed.  Please consult --help"
                 sys.exit(2)
 
+    os.environ['TZ'] = settings.TIME_ZONE
     logging.basicConfig(
         filename=LOGFILE,
         level=MIN_LOG_LEVEL,
@@ -171,16 +175,18 @@ if __name__ == "__main__":
     log(logging.INFO, "Checking {0} scheduled scrapes".format(len(scheduled_scrapes)))
 
     for scheduled_scrape in scheduled_scrapes:
+        now = datetime.now(tz)
         # If this is a time-of-day-based scrape and the last time it was run is
         # between that time and now, then we can skip this scrape
         if scheduled_scrape.last_status != ScheduledScrape.ERROR and \
                 scheduled_scrape.time_of_day and scheduled_scrape.last_run:
+            now = datetime.now(tz)
             last_run_tod = datetime.combine(scheduled_scrape.last_run.date(), scheduled_scrape.time_of_day)
-            now_tod = datetime.combine(datetime.now().date(), scheduled_scrape.time_of_day)
+            now_tod = datetime.combine(now.date(), scheduled_scrape.time_of_day.replace(tzinfo=tz))
             next_run_tod = None
-            if last_run_tod < scheduled_scrape.last_run:
+            if scheduled_scrape.last_run.replace(tzinfo=tz) > now_tod:
                 next_run_tod = now_tod + timedelta(days=1)
-            elif now_tod > datetime.now():
+            elif now_tod > now:
                 next_run_tod = now_tod
             if next_run_tod:
                 log(logging.DEBUG, "Skipping because of time_of_day. Last run at {0:%Y-%m-%d %H:%M}. Next run on or after {1:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, next_run_tod), scheduled_scrape)
@@ -189,8 +195,8 @@ if __name__ == "__main__":
         # If this is a frequency-based scrape and we last ran it more
         # recently than the frequency, then we can skip this scrape
         if  scheduled_scrape.last_status != ScheduledScrape.ERROR and \
-                scheduled_scrape.frequency and scheduled_scrape.last_run and datetime.now() - scheduled_scrape.last_run < scheduled_scrape.frequency_timedelta:
-            log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, (datetime.now() - scheduled_scrape.last_run).total_seconds(), scheduled_scrape.frequency_timedelta.total_seconds(), scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta), scheduled_scrape)
+                scheduled_scrape.frequency and scheduled_scrape.last_run and now - scheduled_scrape.last_run < scheduled_scrape.frequency_timedelta:
+            log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, (now - scheduled_scrape.last_run).total_seconds(), scheduled_scrape.frequency_timedelta.total_seconds(), scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta), scheduled_scrape)
             continue
 
         log(logging.INFO, "Running scrape", scheduled_scrape)
