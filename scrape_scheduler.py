@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.2a'
+__version__ = '0.3'
 
 import sys
 import socket
@@ -10,7 +10,7 @@ import requests
 import re
 import pytz
 import os
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
 
 ENV_HOST = socket.gethostname()
 
