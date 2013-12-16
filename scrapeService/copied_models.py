@@ -24,13 +24,14 @@ class ScheduledScrape(models.Model):
     last_run = models.DateTimeField(verbose_name='Last time this scrape was run', default=None, null=True)
     last_message = models.TextField(verbose_name='Message from the most-recent run', default='', blank=True)
     last_status = models.PositiveSmallIntegerField(verbose_name='Status from most-recent run', default=UNKNOWN, choices=STATUS_CHOICES)
+    is_enabled = models.BooleanField(verbose_name="Scrape is enabled", default=True, blank=False, null=False)
 
     @property
     def time_of_day(self):
         return self._time_of_day
 
     @time_of_day.setter
-    def time_of_day_set(self, value):
+    def time_of_day(self, value):
         self._frequency = None
         self._time_of_day = value
 
@@ -39,7 +40,7 @@ class ScheduledScrape(models.Model):
         return self._frequency
 
     @frequency.setter
-    def frequency_set(self, value):
+    def frequency(self, value):
         self._time_of_day = None
         self._frequency = value
 

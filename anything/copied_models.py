@@ -1,4 +1,5 @@
 from django.db import models
+import vdsClientPortal.common
 
 #general idea here is to disconnect settings from any particular application
 #so that settings can be "shared" across applications by a "key"
@@ -6,6 +7,33 @@ from django.db import models
 #from the portal to the api application. this way we don't have to share any models
 #and don't create code dependencies which tend to get cyclic/circular
 #this idea should lend itself better to breaking things into disconnected services
+
+class setting_names(vdsClientPortal.common.ChoiceBase):
+    report_style = "report_style"
+
+    title_point_username = "title_point_username"
+    title_point_password = "title_point_password"
+    title_point_name_match_percentage = "title_point_name_match_percentage"
+    title_point_county_id_list = "title_point_county_id_list"
+
+    data_trace_www_username = "data_trace_www_username"
+    data_trace_www_password = "data_trace_www_password"
+    data_trace_username = "data_trace_username"
+    data_trace_password = "data_trace_password"
+    data_trace_branch = "data_trace_branch"
+    data_trace_branch_password = "data_trace_branch_password"
+
+    new_order_email_username = "new_order_email_username"
+    new_order_email_password = "new_order_email_password"
+    propfacts_username = "propfacts_username"
+    propfacts_password = "propfacts_password"
+    lsi_webcenter_username = "lsi_webcenter_username"
+    lsi_webcenter_password = "lsi_webcenter_password"
+    mr_robot_username = "mr_robot_username"
+    mr_robot_password = "mr_robot_password"
+
+    icalendar_cache_timestamp = "icalendar_cache_timestamp"
+    icalendar_cache_data = "icalendar_cache_data"
 
 class AnythingSetting(models.Model):
 
@@ -24,6 +52,8 @@ class AnythingSetting(models.Model):
     name = models.TextField(default="")
     value = models.TextField(default="")
 
+    names = setting_names()
+
     @staticmethod
     def get_portal_value(name):
         objs = AnythingSetting.objects.filter(setting_type=AnythingSetting.SETTING_TYPE_PORTAL, instance="", name=name)
@@ -41,30 +71,12 @@ class AnythingSetting(models.Model):
         except Exception:
             return None
 
-    class names(object):
-        report_style = "report_style"
-
-        title_point_username = "title_point_username"
-        title_point_password = "title_point_password"
-
-        data_trace_www_username = "data_trace_www_username"
-        data_trace_www_password = "data_trace_www_password"
-        data_trace_username = "data_trace_username"
-        data_trace_password = "data_trace_password"
-        data_trace_branch = "data_trace_branch"
-        data_trace_branch_password = "data_trace_branch_password"
-
-        new_order_email_username = "new_order_email_username"
-        new_order_email_password = "new_order_email_password"
-        propfacts_username = "propfacts_username"
-        propfacts_password = "propfacts_password"
-        lsi_webcenter_username = "lsi_webcenter_username"
-        lsi_webcenter_password = "lsi_webcenter_password"
-        mr_robot_username = "mr_robot_username"
-        mr_robot_password = "mr_robot_password"
-
-        icalendar_cache_timestamp = "icalendar_cache_timestamp"
-        icalendar_cache_data = "icalendar_cache_data"
+    @staticmethod
+    def setting_as_bool(setting_name, account_name=""):
+        if account_name:
+            return True if AnythingSetting.get_account_value(account_name, setting_name) else False
+        else:
+            return True if AnythingSetting.get_portal_value(setting_name) else False
 
     def __unicode__(self):
         return u'[%s] %s' % (self.instance, self.name)

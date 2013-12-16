@@ -8,7 +8,7 @@ from scrapeService.copied_models import ScheduledScrape
 from vdsWorkPortal.copied_models import CountyDataSourceIndexRange
 
 def pre_request_execute(log, scheduled_scrape):
-    return ScheduledScrape.UNKNOWN
+    return (ScheduledScrape.UNKNOWN, {})
 
 def post_request_execute(log, scheduled_scrape, response):
     response_json = response.json()

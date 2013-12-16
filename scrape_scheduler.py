@@ -24,7 +24,7 @@ if ENV_HOST == 'Lynx':
                 'NAME': 'workportal',
                 'USER': 'workportal',
                 'PASSWORD': 'PYddT2rEk02d',
-                'HOST': '127.0.0.1',
+                'HOST': '192.168.2.110',
                 'PORT': '5432',
                 'OPTIONS': {'autocommit': True,}
             }
@@ -108,8 +108,6 @@ def print_help():
     print "\t\tError, Warning, or Info, or Debug (W)"
     print "  -LFILE\tSets logfile to FILE"
     print "\t\tLeave blank for STDOUT"
-    print "  -p##\t\tSets main polling interval (2)"
-    print "  -w##\t\tSets credential waiting timeout value (90)"
 
     print "  -d\t\tPerforms a dry run (does everything but execute the scrapes)"
     print "  -kKEY=VALUE\tAdds the specified key/value pair to the scrape URL mapping dict"
@@ -167,15 +165,18 @@ if __name__ == "__main__":
     )
 
     scheduled_scrapes = ScheduledScrape.objects.filter(
-        scrapesource__is_enabled=True
+        scrapesource__is_enabled=True,
+        is_enabled=True
     ).exclude(
         _time_of_day__isnull=True,
         _frequency__isnull=True
     ).order_by('pk')
-    log(logging.INFO, "Checking {0} scheduled scrapes".format(len(scheduled_scrapes)))
+    log(logging.DEBUG, "Checking {0} scheduled scrapes".format(len(scheduled_scrapes)))
 
     for scheduled_scrape in scheduled_scrapes:
         now = datetime.now(tz)
+        scrape_url_format_dict = URL_FORMAT_DICT.copy()
+
         # If this is a time-of-day-based scrape and the last time it was run is
         # between that time and now, then we can skip this scrape
         if scheduled_scrape.last_status != ScheduledScrape.ERROR and \
@@ -194,9 +195,9 @@ if __name__ == "__main__":
 
         # If this is a frequency-based scrape and we last ran it more
         # recently than the frequency, then we can skip this scrape
-        if  scheduled_scrape.last_status != ScheduledScrape.ERROR and \
-                scheduled_scrape.frequency and scheduled_scrape.last_run and now - scheduled_scrape.last_run < scheduled_scrape.frequency_timedelta:
-            log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, (now - scheduled_scrape.last_run).total_seconds(), scheduled_scrape.frequency_timedelta.total_seconds(), scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta), scheduled_scrape)
+        if scheduled_scrape.last_status != ScheduledScrape.ERROR and \
+                scheduled_scrape.frequency and scheduled_scrape.last_run and now - scheduled_scrape.last_run.replace(tzinfo=tz) < scheduled_scrape.frequency_timedelta:
+            log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, (now - scheduled_scrape.last_run.replace(tzinfo=tz)).total_seconds(), scheduled_scrape.frequency_timedelta.total_seconds(), scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta), scheduled_scrape)
             continue
 
         log(logging.INFO, "Running scrape", scheduled_scrape)
@@ -209,9 +210,10 @@ if __name__ == "__main__":
 
         if module and hasattr(module, 'pre_request_execute'):
             try:
-                s = module.pre_request_execute(log, scheduled_scrape)
+                (s, scrape_url_format_dict_update) = module.pre_request_execute(log, scheduled_scrape)
                 if s != ScheduledScrape.UNKNOWN:
                     status = s
+                scrape_url_format_dict.update(scrape_url_format_dict_update)
             except:
                 log(logging.WARNING, "pre_request_execute failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
                 scheduled_scrape.last_run = start_time
@@ -220,10 +222,19 @@ if __name__ == "__main__":
                 scheduled_scrape.save()
                 continue
 
-        scrape_url = scheduled_scrape.scrapesource.format_url(URL_FORMAT_DICT)
+        scrape_url = scheduled_scrape.scrapesource.format_url(scrape_url_format_dict)
         log(logging.DEBUG, "Executing scrape: {0}".format(scrape_url), scheduled_scrape)
         # Now that we've filtered out all scrapes that *shouldn't* run, we should run the ones that pass through!
-        response = requests.get(scrape_url)
+        if not DRY_RUN:
+            response = requests.get(scrape_url)
+        else:
+            response = None
+
+        scheduled_scrapes = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
+        if (scheduled_scrapes.count() == 1):
+            scheduled_scrape = scheduled_scrapes[0]
+        else:
+            scheduled_scrape = None
 
         if module and hasattr(module, 'post_request_execute'):
             try:
@@ -234,9 +245,10 @@ if __name__ == "__main__":
                 status = ScheduledScrape.WARNING
 
         # Use the cached datetime.now() so that it won't get screwed up with time_of_day execution
-        scheduled_scrape.last_run = start_time
-        scheduled_scrape.last_message = message
-        scheduled_scrape.last_status = status
-        scheduled_scrape.save()
+        if scheduled_scrape:
+            scheduled_scrape.last_run = start_time
+            scheduled_scrape.last_message = message
+            scheduled_scrape.last_status = status
+            scheduled_scrape.save()
 
     log(logging.INFO, "Done checking scheduled scrapes")
