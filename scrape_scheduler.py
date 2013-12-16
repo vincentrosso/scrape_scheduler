@@ -251,4 +251,4 @@ if __name__ == "__main__":
             scheduled_scrape.last_status = status
             scheduled_scrape.save()
 
-    log(logging.INFO, "Done checking scheduled scrapes")
+    log(logging.DEBUG, "Done checking scheduled scrapes")
