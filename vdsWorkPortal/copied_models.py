@@ -22,7 +22,7 @@ class ScrapeSource(models.Model):
     type = models.TextField()
     is_enabled = models.BooleanField(default=True, blank=False, null=False, verbose_name="IsEnabled")
 
-    def get_image_scrape_url(self, token="",  AFN="", book="", page="", recdate="", scrape_type="Image", county=None, contract_name=None, pages=None):
+    def get_image_scrape_url(self, token="",  AFN="", book="", page="", recdate="", scrape_type="Image", county=None, contract_name=None, pages=None, property_type=""):
         try:
             scrape = None
             url = ""
@@ -52,6 +52,8 @@ class ScrapeSource(models.Model):
                 d["book"] = book
                 d["page"] = page
                 d["date"] = formattedDate
+                if property_type and len(property_type) > 0:
+                    d["property_type"] = property_type[:1]
                 if pages is not None:
                     d["numpages"] = pages
                 try:
@@ -69,7 +71,7 @@ class ScrapeSource(models.Model):
         d = dictionary.copy()
         if "url" not in d:
             d['url'] = self.url
-        if 'fips' not in d:
+        if 'fips' not in d and self.county:
             d['fips'] = self.county.fips
         url_format = url_format.format(**d)
         url_parts = url_format.split("?")
@@ -82,6 +84,17 @@ class ScrapeSource(models.Model):
 
     def __unicode__(self):
         return u'[%s] %s %s' % (self.contract_name, self.county.county_name if self.county else 'None', self.type)
+
+    @property
+    def display(self):
+        return {
+            'contract_name': self.contract_name,
+            'url': self.url,
+            'urlFormat': self.urlFormat,
+            'county': self.county,
+            'type': self.type,
+            'is_enabled': self.is_enabled
+        }
 
 
 class SystemAudit(models.Model):
