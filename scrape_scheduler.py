@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.4'
+__version__ = '0.5'
 
 import sys
 import socket
@@ -176,6 +176,14 @@ if __name__ == "__main__":
     for scheduled_scrape in scheduled_scrapes:
         now = datetime.now(tz)
         scrape_url_format_dict = URL_FORMAT_DICT.copy()
+
+        reget_ss = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
+        if (reget_ss.count() == 1):
+            scheduled_scrape = reget_ss[0]
+        else:
+            # This scrape magically disappeared between the when we started & now
+            log(logging.INFO, "ScheduledScrape magically disappeared... skipping", scheduled_scrape)
+            continue
 
         # If this is a time-of-day-based scrape and the last time it was run is
         # between that time and now, then we can skip this scrape
