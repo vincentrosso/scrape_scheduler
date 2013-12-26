@@ -218,7 +218,7 @@ if __name__ == "__main__":
                 log(logging.WARNING, "pre_request_execute failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
                 scheduled_scrape.last_run = start_time
                 scheduled_scrape.last_message = str(sys.exc_info())
-                scheduled_scrape.last_status = ScheduledScrape.WARNING
+                scheduled_scrape.last_status = ScheduledScrape.ERROR
                 scheduled_scrape.save()
                 continue
 
@@ -242,7 +242,7 @@ if __name__ == "__main__":
             except:
                 log(logging.WARNING, "post_request_execute failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
                 message = str(sys.exc_info())
-                status = ScheduledScrape.WARNING
+                status = ScheduledScrape.ERROR
 
         # Use the cached datetime.now() so that it won't get screwed up with time_of_day execution
         if scheduled_scrape:
