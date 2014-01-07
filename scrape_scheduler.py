@@ -77,7 +77,7 @@ elif ENV_HOST == 'atisearch.com':
                 'OPTIONS': {'autocommit': True,}
             }
         },
-        TIME_ZONE = 'US/Pacific'
+        TIME_ZONE = 'US/Central'
     )
 
 elif ENV_HOST == 'stage.atisearch.com':
@@ -93,7 +93,7 @@ elif ENV_HOST == 'stage.atisearch.com':
                 'OPTIONS': {'autocommit': True,}
             }
         },
-        TIME_ZONE = 'US/Pacific'
+        TIME_ZONE = 'US/Central'
     )
 
 from scrapeService.copied_models import ScheduledScrape
