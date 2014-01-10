@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.5.1'
+__version__ = '0.6'
 
 import sys
 import socket
@@ -249,10 +249,13 @@ if __name__ == "__main__":
         scrape_url = scheduled_scrape.scrapesource.format_url(scrape_url_format_dict)
         log(logging.DEBUG, "Executing scrape: {0}".format(scrape_url), scheduled_scrape)
         # Now that we've filtered out all scrapes that *shouldn't* run, we should run the ones that pass through!
+        response = None
         if not DRY_RUN:
-            response = requests.get(scrape_url)
-        else:
-            response = None
+            try:
+                response = requests.get(scrape_url)
+            except Exception, ex:
+                log(logging.ERROR, "request.get failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
+                response = None
 
         scheduled_scrapes = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
         if (scheduled_scrapes.count() == 1):

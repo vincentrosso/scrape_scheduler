@@ -11,6 +11,9 @@ def pre_request_execute(log, scheduled_scrape):
     return (ScheduledScrape.UNKNOWN, {})
 
 def post_request_execute(log, scheduled_scrape, response):
+    if not response:
+        return (ScheduledScrape.ERROR, "response is None")
+
     response_json = response.json()
     log(logging.DEBUG, "JSON response: {0}".format(response_json), scheduled_scrape)
 
