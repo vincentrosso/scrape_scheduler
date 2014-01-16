@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.6'
+__version__ = '0.6.1'
 
 import sys
 import socket
@@ -41,7 +41,7 @@ elif ENV_HOST == 'stage.vanguardds.com':
                 'USER': 'workportal',
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '127.0.0.1',
-                'PORT': '5432',
+                'PORT': '6432',
                 'OPTIONS': {'autocommit': True,}
             }
         },
@@ -57,7 +57,7 @@ elif ENV_HOST == 'work.vanguardds.com':
                 'USER': 'workportal',
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '127.0.0.1',
-                'PORT': '5432',
+                'PORT': '6432',
                 'OPTIONS': {'autocommit': True,}
             }
         },
