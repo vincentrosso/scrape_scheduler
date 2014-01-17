@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.6.1'
+__version__ = '0.7'
 
 import sys
 import socket
@@ -10,6 +10,7 @@ import requests
 import re
 import pytz
 import os
+import inspect
 from datetime import datetime, timedelta
 
 ENV_HOST = socket.gethostname()
@@ -132,54 +133,7 @@ def print_help():
     print "  -v/--version\t\tPrints the current version"
 
 
-if __name__ == "__main__":
-    start_time = datetime.now(tz)
-
-    #  VERY basic options parsing
-    if len(sys.argv) >= 2:
-        for arg in sys.argv[1:]:
-            if arg[:2] == '-l':
-                if arg[-1] in ('f', 'F'):
-                    MIN_LOG_LEVEL = logging.FATAL
-                elif arg[-1] in ('c', 'C'):
-                    MIN_LOG_LEVEL = logging.CRITICAL
-                elif arg[-1] in ('e', 'E'):
-                    MIN_LOG_LEVEL = logging.ERROR
-                elif arg[-1] in ('w', 'W'):
-                    MIN_LOG_LEVEL = logging.WARNING
-                elif arg[-1] in ('i', 'I'):
-                    MIN_LOG_LEVEL = logging.INFO
-                elif arg[-1] in ('d', 'D'):
-                    MIN_LOG_LEVEL = logging.DEBUG
-                else:
-                    print "unknown parameter '{0}' specified for -l.  Please use F, C, E, W, I, or D"
-                    sys.exit(2)
-            elif arg[:2] == '-L':
-                LOGFILE = arg[2:]
-            elif arg[:2] == '-d':
-                DRY_RUN = True
-            elif arg[:2] == '-k':
-                mo = re.match(r'(?P<key>[^=\s]+)\s*=\s*(?P<value>.*)', arg[2:])
-                if mo:
-                    URL_FORMAT_DICT[mo.group('key')] = mo.group('value')
-            elif arg[:2] in ('-h', '--help'):
-                print_help()
-                sys.exit(1)
-            elif arg[:2] in ('-v', '--version'):
-                print "%s version %s" % (sys.argv[0], __version__)
-                sys.exit(1)
-            else:
-                print "Unknown argument passed.  Please consult --help"
-                sys.exit(2)
-
-    os.environ['TZ'] = settings.TIME_ZONE
-    logging.basicConfig(
-        filename=LOGFILE,
-        level=MIN_LOG_LEVEL,
-        format='[%(asctime)s] %(levelname)s: %(message)s',
-        datefmt=TIMESTAMP_FORMAT
-    )
-
+def process_scheduled_scrapes():
     scheduled_scrapes = ScheduledScrape.objects.filter(
         scrapesource__is_enabled=True,
         is_enabled=True
@@ -279,3 +233,82 @@ if __name__ == "__main__":
             scheduled_scrape.save()
 
     log(logging.DEBUG, "Done checking scheduled scrapes")
+
+
+if __name__ == "__main__":
+    start_time = datetime.now(tz)
+
+    #  VERY basic options parsing
+    if len(sys.argv) >= 2:
+        for arg in sys.argv[1:]:
+            if arg[:2] == '-l':
+                if arg[-1] in ('f', 'F'):
+                    MIN_LOG_LEVEL = logging.FATAL
+                elif arg[-1] in ('c', 'C'):
+                    MIN_LOG_LEVEL = logging.CRITICAL
+                elif arg[-1] in ('e', 'E'):
+                    MIN_LOG_LEVEL = logging.ERROR
+                elif arg[-1] in ('w', 'W'):
+                    MIN_LOG_LEVEL = logging.WARNING
+                elif arg[-1] in ('i', 'I'):
+                    MIN_LOG_LEVEL = logging.INFO
+                elif arg[-1] in ('d', 'D'):
+                    MIN_LOG_LEVEL = logging.DEBUG
+                else:
+                    print "unknown parameter '{0}' specified for -l.  Please use F, C, E, W, I, or D"
+                    sys.exit(2)
+            elif arg[:2] == '-L':
+                LOGFILE = arg[2:]
+            elif arg[:2] == '-d':
+                DRY_RUN = True
+            elif arg[:2] == '-k':
+                mo = re.match(r'(?P<key>[^=\s]+)\s*=\s*(?P<value>.*)', arg[2:])
+                if mo:
+                    URL_FORMAT_DICT[mo.group('key')] = mo.group('value')
+            elif arg[:2] in ('-h', '--help'):
+                print_help()
+                sys.exit(1)
+            elif arg[:2] in ('-v', '--version'):
+                print "%s version %s" % (sys.argv[0], __version__)
+                sys.exit(1)
+            else:
+                print "Unknown argument passed.  Please consult --help"
+                sys.exit(2)
+
+    os.environ['TZ'] = settings.TIME_ZONE
+    logging.basicConfig(
+        filename=LOGFILE,
+        level=MIN_LOG_LEVEL,
+        format='[%(asctime)s] %(levelname)s: %(message)s',
+        datefmt=TIMESTAMP_FORMAT
+    )
+
+    executable = inspect.getfile(inspect.currentframe())
+    exec_path = os.path.dirname(os.path.abspath(executable))
+    pid_file = os.path.join(exec_path, '.pid')
+
+    already_running = False
+
+    if os.path.isfile(pid_file):
+        pid = None
+        with open(pid_file) as f:
+            pid = f.read()
+
+        try:
+            pid = int(pid)
+            os.kill(pid, 0)
+            already_running = True
+        except:
+            pass
+
+    if already_running:
+        log(logging.DEBUG, "scrape_scheduler is already running!")
+
+    else:
+        # Create a new file to indicate that we're already running
+        with open(pid_file, 'w') as f:
+            f.write(str(os.getpid()))
+
+        process_scheduled_scrapes()
+
+        os.remove(pid_file)

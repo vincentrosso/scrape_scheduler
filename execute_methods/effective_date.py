@@ -48,12 +48,15 @@ def post_request_execute(log, scheduled_scrape, response):
     for data_item in data:
         new_date = date(day=data_item['day'], month=data_item['month'], year=data_item['year'])
 
+        any_found = False
+
         for cdsir in cdsir_list:
             # This is not of the type we're looking for
             if cdsir.county_data_source.source_type.lower() not in scheduled_scrape.scrapesource.contract_name or \
                             cdsir.index_subtype.lower() != data_item.get('label', cdsir.index_subtype.lower()):
                 continue
 
+            any_found = True
             cdsir.effective_date_business_days = None
             try:
                 cdsir.effective_date_exact = new_date
@@ -61,5 +64,8 @@ def post_request_execute(log, scheduled_scrape, response):
             except:
                 return (ScheduledScrape.WARNING, "Unparseable date '{0}': {1}".format(data_item, sys.exc_info()))
             cdsir.save()
+
+        if not any_found:
+            log(logging.WARNING, "Could not find any associated CountyDataSourceIndexRange for: {0}".format(new_date), scheduled_scrape)
 
     return (ScheduledScrape.SUCCESS, "Success")
