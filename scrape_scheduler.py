@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.7'
+__version__ = '0.8'
 
 import sys
 import socket
@@ -122,12 +122,12 @@ def print_help():
     print "OPTIONS can be any of (default in parenthesis):"
 
     print "  -l(F|C|E|W|I|D)\tSets the minimum logging level to Fatal, Critical, "
-    print "\t\tError, Warning, or Info, or Debug (W)"
-    print "  -LFILE\tSets logfile to FILE"
-    print "\t\tLeave blank for STDOUT"
+    print "\t\t\tError, Warning, or Info, or Debug (W)"
+    print "  -LFILE\t\tSets logfile to FILE"
+    print "\t\t\tLeave blank for STDOUT"
 
-    print "  -d\t\tPerforms a dry run (does everything but execute the scrapes)"
-    print "  -kKEY=VALUE\tAdds the specified key/value pair to the scrape URL mapping dict"
+    print "  -d/--dry\t\tPerforms a dry run (does everything but execute the scrapes)"
+    print "  -kKEY=VALUE\t\tAdds the specified key/value pair to the scrape URL mapping dict"
     print "\t\t\tCan be specified multiple times"
     print "  -h/--help\t\tPrints this message"
     print "  -v/--version\t\tPrints the current version"
@@ -178,6 +178,16 @@ def process_scheduled_scrapes():
             log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, (now - scheduled_scrape.last_run.replace(tzinfo=tz)).total_seconds(), scheduled_scrape.frequency_timedelta.total_seconds(), scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta), scheduled_scrape)
             continue
 
+        if scheduled_scrape.last_status == ScheduledScrape.ERROR and \
+                scheduled_scrape.retry_count >= scheduled_scrape.max_retries:
+            log(logging.DEBUG, "Skipping retry because of too many retries: ({0} >= {1}).".format(scheduled_scrape.retry_count, scheduled_scrape.max_retries), scheduled_scrape)
+            continue
+
+        if scheduled_scrape.last_status == ScheduledScrape.ERROR and \
+                now - scheduled_scrape.last_run.replace(tzinfo=tz) < timedelta(minutes=scheduled_scrape.retry_timeout):
+            log(logging.DEBUG, "Skipping retry because of retry_timeout ({0:%Y-%m-%d %H:%M} - {1:%Y-%m-%d %H:%M} => {2:0.0f}min < {3:0.0f}min).".format(now, scheduled_scrape.last_run.replace(tzinfo=tz), (now - scheduled_scrape.last_run.replace(tzinfo=tz)).total_seconds() / 60.0, scheduled_scrape.retry_timeout), scheduled_scrape)
+            continue
+
         log(logging.INFO, "Running scrape", scheduled_scrape)
 
         message = ''
@@ -197,6 +207,7 @@ def process_scheduled_scrapes():
                 scheduled_scrape.last_run = start_time
                 scheduled_scrape.last_message = str(sys.exc_info())
                 scheduled_scrape.last_status = ScheduledScrape.ERROR
+                scheduled_scrape.retry_count += 1
                 scheduled_scrape.save()
                 continue
 
@@ -230,6 +241,13 @@ def process_scheduled_scrapes():
             scheduled_scrape.last_run = start_time
             scheduled_scrape.last_message = message
             scheduled_scrape.last_status = status
+            if status == ScheduledScrape.ERROR:
+                scheduled_scrape.retry_count += 1
+                if scheduled_scrape.retry_count >= scheduled_scrape.max_retries and scheduled_scrape.disable_on_max_retries:
+                    log(logging.WARNING, "Disabling scheduled scrape because of too many retries.", scheduled_scrape)
+                    scheduled_scrape.is_enabled = False
+            else:
+                scheduled_scrape.retry_count = 0
             scheduled_scrape.save()
 
     log(logging.DEBUG, "Done checking scheduled scrapes")
@@ -259,16 +277,16 @@ if __name__ == "__main__":
                     sys.exit(2)
             elif arg[:2] == '-L':
                 LOGFILE = arg[2:]
-            elif arg[:2] == '-d':
+            elif arg in ('-d', '--dry'):
                 DRY_RUN = True
             elif arg[:2] == '-k':
                 mo = re.match(r'(?P<key>[^=\s]+)\s*=\s*(?P<value>.*)', arg[2:])
                 if mo:
                     URL_FORMAT_DICT[mo.group('key')] = mo.group('value')
-            elif arg[:2] in ('-h', '--help'):
+            elif arg in ('-h', '--help'):
                 print_help()
                 sys.exit(1)
-            elif arg[:2] in ('-v', '--version'):
+            elif arg in ('-v', '--version'):
                 print "%s version %s" % (sys.argv[0], __version__)
                 sys.exit(1)
             else:
