@@ -8,6 +8,9 @@ def pre_request_execute(log, scheduled_scrape):
     return (ScheduledScrape.UNKNOWN, {'get_url': urlquote(scheduled_scrape.parameters)})
 
 def post_request_execute(log, scheduled_scrape, response):
+    if not response:
+        return (ScheduledScrape.ERROR, "response is None")
+
     print "Response: {0}".format(response.text)
     if response.status_code == 200:
         return (ScheduledScrape.SUCCESS, "Success")
