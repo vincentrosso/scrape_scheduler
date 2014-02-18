@@ -38,7 +38,10 @@ class ScheduledScrape(models.Model):
     def time_of_day(self, value):
         if value:
             if type(value) in (str, unicode):
-                value = datetime.strptime(value, '%I:%M %p')
+                try:
+                    value = datetime.strptime(value, '%I:%M %p')
+                except:
+                    pass
             self._frequency = None
             self._time_of_day = value
 
