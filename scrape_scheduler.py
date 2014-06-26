@@ -145,6 +145,8 @@ def process_scheduled_scrapes():
 
     for scheduled_scrape in scheduled_scrapes:
         now = datetime.now(tz)
+        time_of_day = tz.fromutc(scheduled_scrape.time_of_day.replace(tzinfo=tz))
+        last_run = tz.fromutc(scheduled_scrape.last_run.replace(tzinfo=tz))
         scrape_url_format_dict = URL_FORMAT_DICT.copy()
 
         reget_ss = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
@@ -161,9 +163,9 @@ def process_scheduled_scrapes():
                 scheduled_scrape.time_of_day and scheduled_scrape.last_run:
             now = datetime.now(tz)
             last_run_tod = datetime.combine(scheduled_scrape.last_run.date(), scheduled_scrape.time_of_day)
-            now_tod = datetime.combine(now.date(), scheduled_scrape.time_of_day.replace(tzinfo=tz))
+            now_tod = datetime.combine(now.date(), time_of_day)
             next_run_tod = None
-            if scheduled_scrape.last_run.replace(tzinfo=tz) > now_tod:
+            if last_run > now_tod:
                 next_run_tod = now_tod + timedelta(days=1)
             elif now_tod > now:
                 next_run_tod = now_tod
@@ -174,8 +176,8 @@ def process_scheduled_scrapes():
         # If this is a frequency-based scrape and we last ran it more
         # recently than the frequency, then we can skip this scrape
         if scheduled_scrape.last_status != ScheduledScrape.ERROR and \
-                scheduled_scrape.frequency and scheduled_scrape.last_run and now - scheduled_scrape.last_run.replace(tzinfo=tz) < scheduled_scrape.frequency_timedelta:
-            log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, (now - scheduled_scrape.last_run.replace(tzinfo=tz)).total_seconds(), scheduled_scrape.frequency_timedelta.total_seconds(), scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta), scheduled_scrape)
+                scheduled_scrape.frequency and scheduled_scrape.last_run and now - last_run < scheduled_scrape.frequency_timedelta:
+            log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, (now - last_run).total_seconds(), scheduled_scrape.frequency_timedelta.total_seconds(), scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta), scheduled_scrape)
             continue
 
         if scheduled_scrape.last_status == ScheduledScrape.ERROR and \
@@ -184,9 +186,10 @@ def process_scheduled_scrapes():
             log(logging.DEBUG, "Skipping retry because of too many retries: ({0} >= {1}).".format(scheduled_scrape.retry_count, scheduled_scrape.max_retries), scheduled_scrape)
             continue
 
+        retry_interval = now - last_run
         if scheduled_scrape.last_status == ScheduledScrape.ERROR and \
-                now - scheduled_scrape.last_run.replace(tzinfo=tz) < timedelta(minutes=scheduled_scrape.retry_timeout):
-            log(logging.DEBUG, "Skipping retry because of retry_timeout ({0:%Y-%m-%d %H:%M} - {1:%Y-%m-%d %H:%M} => {2:0.0f}min < {3:0.0f}min).".format(now, scheduled_scrape.last_run.replace(tzinfo=tz), (now - scheduled_scrape.last_run.replace(tzinfo=tz)).total_seconds() / 60.0, scheduled_scrape.retry_timeout), scheduled_scrape)
+                retry_interval < timedelta(minutes=scheduled_scrape.retry_timeout):
+            log(logging.DEBUG, "Skipping retry because of retry_timeout ({0:%Y-%m-%d %H:%M} - {1:%Y-%m-%d %H:%M} => {2:0.0f}min < {3:0.0f}min).".format(now, last_run, retry_interval.total_seconds() / 60.0, scheduled_scrape.retry_timeout), scheduled_scrape)
             continue
 
         log(logging.INFO, "Running scrape", scheduled_scrape)
