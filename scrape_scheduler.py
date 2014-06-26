@@ -188,7 +188,7 @@ def process_scheduled_scrapes():
 
         retry_interval = now - last_run
         if scheduled_scrape.last_status == ScheduledScrape.ERROR and \
-                scheduled_scrape.retry_timeout > 0 and \
+                scheduled_scrape.retry_timeout and \
                 retry_interval < timedelta(minutes=scheduled_scrape.retry_timeout):
             log(logging.DEBUG, "Skipping retry because of retry_timeout ({0:%Y-%m-%d %H:%M} - {1:%Y-%m-%d %H:%M} => {2:0.0f}min < {3:0.0f}min).".format(now, last_run, retry_interval.total_seconds() / 60.0, scheduled_scrape.retry_timeout), scheduled_scrape)
             continue
