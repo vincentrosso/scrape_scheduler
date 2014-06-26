@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.8'
+__version__ = '0.9'
 
 import sys
 import socket
@@ -179,6 +179,7 @@ def process_scheduled_scrapes():
             continue
 
         if scheduled_scrape.last_status == ScheduledScrape.ERROR and \
+                scheduled_scrape.max_retries > 0 and \
                 scheduled_scrape.retry_count >= scheduled_scrape.max_retries:
             log(logging.DEBUG, "Skipping retry because of too many retries: ({0} >= {1}).".format(scheduled_scrape.retry_count, scheduled_scrape.max_retries), scheduled_scrape)
             continue
