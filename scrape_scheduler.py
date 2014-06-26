@@ -145,7 +145,7 @@ def process_scheduled_scrapes():
 
     for scheduled_scrape in scheduled_scrapes:
         now = datetime.now(tz)
-        time_of_day = tz.fromutc(scheduled_scrape.time_of_day.replace(tzinfo=tz))
+        time_of_day = scheduled_scrape.time_of_day.replace(tzinfo=tz)
         last_run = tz.fromutc(scheduled_scrape.last_run.replace(tzinfo=tz))
         scrape_url_format_dict = URL_FORMAT_DICT.copy()
 
