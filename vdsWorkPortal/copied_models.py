@@ -9,7 +9,6 @@ from django.dispatch import receiver
 from django.utils.http import urlencode
 
 import vdsClientPortal.enums
-from vdsClientPortal import workday
 import vdsWorkPortal.common.utils
 import vdsWorkPortal.common.enums
 
@@ -110,54 +109,6 @@ class SystemAudit(models.Model):
         sa.auditType = audit_type
         sa.save()
         return sa
-
-class CountyDataSource(models.Model):
-    from titleapi.copied_models import County
-    county = models.ForeignKey(County)
-    source_type = models.CharField(max_length=200, choices=vdsWorkPortal.common.enums.CountyDataSource_source_type().as_choices())
-    source_name = models.CharField(max_length=1000)
-    source_url = models.URLField(default=None, blank=True, null=True)
-    source_data_type = models.CharField(max_length=200, default=vdsWorkPortal.common.enums.CountyDataSource_source_data_type.Website, choices=vdsWorkPortal.common.enums.CountyDataSource_source_data_type().as_choices())
-    notes= models.TextField(blank=True)
-
-    def __unicode__(self):
-        return u'[%s] %s' % (self.county, self.source_name)
-
-    @property
-    def county_display(self):
-        return self.county.display
-
-class CountyDataSourceIndexRange(models.Model):
-    county_data_source = models.ForeignKey(CountyDataSource)
-    index_type = models.CharField(max_length=1000, choices=vdsWorkPortal.common.enums.CountyDataSourceIndex_type().as_choices())
-    index_subtype = models.CharField(max_length=1000, choices=vdsWorkPortal.common.enums.blank_choice + vdsWorkPortal.common.enums.CountyDataSourceIndex_subtype().as_choices(), blank=True)
-    start_date = models.DateField()
-
-    effective_date_exact = models.DateField(verbose_name="Exact Effective Date", default=None, blank=True, null=True)
-    effective_date_business_days = models.PositiveIntegerField(verbose_name="Business days from today to calculate Effective Date", default=None, blank=True, null=True)
-
-    @property
-    def effective_date(self):
-        if self.effective_date_exact:
-            return self.effective_date_exact
-
-        if self.effective_date_business_days is not None:
-            try:
-                # Now that the calendar is loaded, we can use that to calculate business days properly
-                return workday.workdayadd(
-                    datetime.now().date(),
-                    -self.effective_date_business_days,
-                    holidays=workday.icalendar_holidays()
-                )
-
-            except Exception, ex:
-                SystemAudit.add("Error calculating Business Days: {0}".format(ex), vdsClientPortal.enums.SystemAudit_types.SYSTEM_ERROR)
-                return None
-
-        return None
-
-    def __unicode__(self):
-        return u'[%s] %s' % (self.county_data_source, self.index_type)
 
 # This method NULLs out the effective_date_business_days field if both it and effective_date_exact
 # are populated, so there's no confusion about which one is "correct"
