@@ -14,7 +14,7 @@ import vdsWorkPortal.common.utils
 import vdsWorkPortal.common.enums
 
 class ScrapeSource(models.Model):
-    from vdsClientPortal.copied_models import County
+    from titleapi.copied_models import County
     contract_name = models.TextField()
     url = models.TextField()
     urlFormat = models.TextField()
@@ -112,7 +112,7 @@ class SystemAudit(models.Model):
         return sa
 
 class CountyDataSource(models.Model):
-    from vdsClientPortal.copied_models import County
+    from titleapi.copied_models import County
     county = models.ForeignKey(County)
     source_type = models.CharField(max_length=200, choices=vdsWorkPortal.common.enums.CountyDataSource_source_type().as_choices())
     source_name = models.CharField(max_length=1000)
