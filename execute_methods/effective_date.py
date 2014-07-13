@@ -5,7 +5,7 @@ import logging
 from datetime import date
 
 from scrapeService.copied_models import ScheduledScrape
-from vdsWorkPortal.copied_models import CountyDataSourceIndexRange
+from titleapi.copied_models import CountyDataSourceIndexRange
 
 def pre_request_execute(log, scheduled_scrape):
     return (ScheduledScrape.UNKNOWN, {})

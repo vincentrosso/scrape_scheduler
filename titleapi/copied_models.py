@@ -1,7 +1,10 @@
 __author__ = 'Steven Ogdahl'
 
 from datetime import datetime
+
 from django.db import models
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
 
 from vdsClientPortal.enums import SystemAudit_types
 from vdsClientPortal import workday
@@ -181,3 +184,13 @@ class CountyDataSourceIndexRange(models.Model):
     def __unicode__(self):
         return u'[%s] %s' % (self.county_data_source, self.index_type)
 
+
+# This method NULLs out the effective_date_business_days field if both it and effective_date_exact
+# are populated, so there's no confusion about which one is "correct"
+@receiver(pre_save, sender=CountyDataSourceIndexRange)
+def verify_effective_date(sender, instance=None, **kwargs):
+    if not instance or not isinstance(instance, CountyDataSourceIndexRange):
+        return
+
+    if instance.effective_date_exact:
+        instance.effective_date_business_days = None
