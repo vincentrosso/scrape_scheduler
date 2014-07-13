@@ -4,8 +4,6 @@ from datetime import datetime
 from time import strftime
 
 from django.db import models
-from django.db.models.signals import pre_save
-from django.dispatch import receiver
 from django.utils.http import urlencode
 
 import vdsClientPortal.enums
@@ -109,13 +107,3 @@ class SystemAudit(models.Model):
         sa.auditType = audit_type
         sa.save()
         return sa
-
-# This method NULLs out the effective_date_business_days field if both it and effective_date_exact
-# are populated, so there's no confusion about which one is "correct"
-@receiver(pre_save, sender=CountyDataSourceIndexRange)
-def verify_effective_date(sender, instance=None, **kwargs):
-    if not instance or not isinstance(instance, CountyDataSourceIndexRange):
-        return
-
-    if instance.effective_date_exact:
-        instance.effective_date_business_days = None
