@@ -9,7 +9,6 @@ from django.dispatch import receiver
 from vdsClientPortal.enums import SystemAudit_types
 from vdsClientPortal import workday
 import vdsWorkPortal.common.enums
-from vdsWorkPortal.copied_models import SystemAudit
 
 class County(models.Model):
     state_short = models.CharField(max_length=2)
@@ -176,6 +175,7 @@ class CountyDataSourceIndexRange(models.Model):
                 )
 
             except Exception, ex:
+                from vdsWorkPortal.copied_models import SystemAudit
                 SystemAudit.add("Error calculating Business Days: {0}".format(ex), SystemAudit_types.SYSTEM_ERROR)
                 return None
 
