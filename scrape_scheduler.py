@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.9'
+__version__ = '0.10'
 
 import sys
 import socket
@@ -112,7 +112,7 @@ LOGFILE = 'scrape_scheduler.log'
 
 def log(level, message, scheduled_scrape=None):
     if scheduled_scrape:
-        logstr = "SchScrapeId: {0} -- {1}".format(scheduled_scrape.id, message)
+        logstr = "SchScrapeId: {0} ({1}) -- {2}".format(scheduled_scrape.id, scheduled_scrape.scrapesource.contract_name, message)
     else:
         logstr = message
     logging.log(level, logstr)
@@ -145,8 +145,9 @@ def process_scheduled_scrapes():
 
     for scheduled_scrape in scheduled_scrapes:
         now = datetime.now(tz)
-        time_of_day = tz.fromutc(scheduled_scrape.time_of_day.replace(tzinfo=tz))
-        last_run = tz.fromutc(scheduled_scrape.last_run.replace(tzinfo=tz))
+        last_run = None
+        if scheduled_scrape.last_run:
+            last_run = tz.fromutc(scheduled_scrape.last_run.replace(tzinfo=tz))
         scrape_url_format_dict = URL_FORMAT_DICT.copy()
 
         reget_ss = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
@@ -160,10 +161,10 @@ def process_scheduled_scrapes():
         # If this is a time-of-day-based scrape and the last time it was run is
         # between that time and now, then we can skip this scrape
         if scheduled_scrape.last_status != ScheduledScrape.ERROR and \
-                scheduled_scrape.time_of_day and scheduled_scrape.last_run:
-            now = datetime.now(tz)
-            last_run_tod = datetime.combine(scheduled_scrape.last_run.date(), scheduled_scrape.time_of_day)
-            now_tod = datetime.combine(now.date(), time_of_day)
+                scheduled_scrape.time_of_day and last_run:
+            time_of_day = scheduled_scrape.time_of_day.replace(tzinfo=tz)
+            last_run_tod = datetime.combine(last_run.date(), scheduled_scrape.time_of_day)
+            now_tod = tz.fromutc(datetime.combine(now.date(), time_of_day).replace(tzinfo=tz))
             next_run_tod = None
             if last_run > now_tod:
                 next_run_tod = now_tod + timedelta(days=1)
@@ -176,7 +177,7 @@ def process_scheduled_scrapes():
         # If this is a frequency-based scrape and we last ran it more
         # recently than the frequency, then we can skip this scrape
         if scheduled_scrape.last_status != ScheduledScrape.ERROR and \
-                scheduled_scrape.frequency and scheduled_scrape.last_run and now - last_run < scheduled_scrape.frequency_timedelta:
+                scheduled_scrape.frequency and last_run and now - last_run < scheduled_scrape.frequency_timedelta:
             log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, (now - last_run).total_seconds(), scheduled_scrape.frequency_timedelta.total_seconds(), scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta), scheduled_scrape)
             continue
 
@@ -188,6 +189,7 @@ def process_scheduled_scrapes():
 
         retry_interval = now - last_run
         if scheduled_scrape.last_status == ScheduledScrape.ERROR and \
+                scheduled_scrape.retry_timeout and \
                 retry_interval < timedelta(minutes=scheduled_scrape.retry_timeout):
             log(logging.DEBUG, "Skipping retry because of retry_timeout ({0:%Y-%m-%d %H:%M} - {1:%Y-%m-%d %H:%M} => {2:0.0f}min < {3:0.0f}min).".format(now, last_run, retry_interval.total_seconds() / 60.0, scheduled_scrape.retry_timeout), scheduled_scrape)
             continue
@@ -217,14 +219,15 @@ def process_scheduled_scrapes():
 
         scrape_url = scheduled_scrape.scrapesource.format_url(scrape_url_format_dict)
         log(logging.DEBUG, "Executing scrape: {0}".format(scrape_url), scheduled_scrape)
+        if DRY_RUN:
+            continue
         # Now that we've filtered out all scrapes that *shouldn't* run, we should run the ones that pass through!
         response = None
-        if not DRY_RUN:
-            try:
-                response = requests.get(scrape_url)
-            except Exception, ex:
-                log(logging.ERROR, "request.get failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
-                response = None
+        try:
+            response = requests.get(scrape_url)
+        except Exception, ex:
+            log(logging.ERROR, "request.get failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
+            response = None
 
         scheduled_scrapes = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
         if (scheduled_scrapes.count() == 1):
