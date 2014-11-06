@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.13'
+__version__ = '0.14'
 
 import sys
 import socket
@@ -216,7 +216,8 @@ def process_scheduled_scrapes():
                     status = s
                 scrape_url_format_dict.update(scrape_url_format_dict_update)
             except:
-                log(logging.WARNING, "pre_request_execute failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
+                import traceback
+                log(logging.WARNING, "pre_request_execute failed with the following exception: {0}".format(traceback.format_exc()), scheduled_scrape)
                 scheduled_scrape.last_run = start_time
                 scheduled_scrape.last_message = str(sys.exc_info())
                 scheduled_scrape.last_status = ScheduledScrape.ERROR
@@ -231,8 +232,9 @@ def process_scheduled_scrapes():
         # Now that we've filtered out all scrapes that *shouldn't* run, we should run the ones that pass through!
         try:
             response = requests.get(scrape_url)
-        except Exception, ex:
-            log(logging.ERROR, "request.get failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
+        except:
+            import traceback
+            log(logging.ERROR, "request.get failed with the following exception: {0}".format(traceback.format_exc()), scheduled_scrape)
             response = None
 
         scheduled_scrapes = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
@@ -245,8 +247,9 @@ def process_scheduled_scrapes():
             try:
                 status, message = module.post_request_execute(log, scheduled_scrape, response)
             except:
-                log(logging.WARNING, "post_request_execute failed with the following exception: {0}".format(sys.exc_info()), scheduled_scrape)
-                message = str(sys.exc_info())
+                import traceback
+                log(logging.WARNING, "post_request_execute failed with the following exception: {0}".format(traceback.format_exc()), scheduled_scrape)
+                message = str(traceback.format_exc())
                 status = ScheduledScrape.ERROR
 
         # Use the cached datetime.now() so that it won't get screwed up with time_of_day execution
