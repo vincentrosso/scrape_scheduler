@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.11'
+__version__ = '0.12'
 
 import sys
 import socket
