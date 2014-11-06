@@ -147,7 +147,7 @@ def process_scheduled_scrapes():
         now = datetime.now(tz)
         last_run = None
         if scheduled_scrape.last_run:
-            last_run = tz.fromutc(scheduled_scrape.last_run.replace(tzinfo=tz))
+            last_run = scheduled_scrape.last_run.replace(tzinfo=tz)
         scrape_url_format_dict = URL_FORMAT_DICT.copy()
 
         reget_ss = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
@@ -164,12 +164,17 @@ def process_scheduled_scrapes():
                 scheduled_scrape.time_of_day and last_run:
             time_of_day = scheduled_scrape.time_of_day.replace(tzinfo=tz)
             last_run_tod = datetime.combine(last_run.date(), scheduled_scrape.time_of_day)
-            now_tod = tz.fromutc(datetime.combine(now.date(), time_of_day).replace(tzinfo=tz))
+            now_tod = datetime.combine(now.date(), time_of_day).replace(tzinfo=tz)
             next_run_tod = None
-            if last_run > now_tod:
+            if now.date() > last_run.date():
+                if now.time() < last_run.time():
+                    next_run_tod = now_tod
+            else:
                 next_run_tod = now_tod + timedelta(days=1)
-            elif now_tod > now:
-                next_run_tod = now_tod
+            #if last_run > now_tod:
+            #    next_run_tod = now_tod + timedelta(days=1)
+            #elif now_tod > now:
+            #    next_run_tod = now_tod
             if next_run_tod:
                 log(logging.DEBUG, "Skipping because of time_of_day. Last run at {0:%Y-%m-%d %H:%M}. Next run on or after {1:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, next_run_tod), scheduled_scrape)
                 continue

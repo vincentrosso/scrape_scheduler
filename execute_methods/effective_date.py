@@ -46,14 +46,15 @@ def post_request_execute(log, scheduled_scrape, response):
     cdsir_list = cdsir_objs.all()
 
     for data_item in data:
-        new_date = date(day=data_item['day'], month=data_item['month'], year=data_item['year'])
+        data_data_item = data_item['data']
+        new_date = date(day=data_data_item['day'], month=data_data_item['month'], year=data_data_item['year'])
 
         any_found = False
 
         for cdsir in cdsir_list:
             # This is not of the type we're looking for
             if cdsir.county_data_source.source_type.lower() not in scheduled_scrape.scrapesource.contract_name or \
-                            cdsir.index_subtype.lower() != data_item.get('label', cdsir.index_subtype.lower()):
+                            cdsir.index_subtype.lower() != data_data_item.get('label', cdsir.index_subtype.lower()):
                 continue
 
             any_found = True
@@ -62,7 +63,7 @@ def post_request_execute(log, scheduled_scrape, response):
                 cdsir.effective_date_exact = new_date
                 log(logging.DEBUG, "Setting CountyDataSourceIndexRange #{0}'s effective_date_exact to {1}".format(cdsir.pk, cdsir.effective_date_exact), scheduled_scrape)
             except:
-                return (ScheduledScrape.WARNING, "Unparseable date '{0}': {1}".format(data_item, sys.exc_info()))
+                return (ScheduledScrape.WARNING, "Unparseable date '{0}': {1}".format(data_data_item, sys.exc_info()))
             cdsir.save()
 
         if not any_found:
