@@ -25,7 +25,9 @@ def post_request_execute(log, scheduled_scrape, response):
     if response_json.get('status') != 'OK':
         return (ScheduledScrape.ERROR, "Invalid status returned (not OK): {0}".format(response_json.get('status')))
 
-    data = response_json.get('data', {}).get('data', [{}])
+    data = response_json.get('data', {})
+    if 'data' in data:
+        data = data['data']
     if isinstance(data, dict):
         data = [data]
 
