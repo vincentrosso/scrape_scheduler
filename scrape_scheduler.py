@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.10'
+__version__ = '0.12'
 
 import sys
 import socket
@@ -27,7 +27,7 @@ if ENV_HOST == 'Lynx':
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '192.168.2.110',
                 'PORT': '5432',
-                'OPTIONS': {'autocommit': True,}
+                'OPTIONS': {'autocommit': True, }
             }
         },
         TIME_ZONE = 'US/Central'
@@ -35,7 +35,7 @@ if ENV_HOST == 'Lynx':
 
 elif ENV_HOST == 'stage.vanguardds.com':
     settings.configure(
-        DATABASES = {
+        DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
@@ -43,15 +43,15 @@ elif ENV_HOST == 'stage.vanguardds.com':
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '127.0.0.1',
                 'PORT': '6432',
-                'OPTIONS': {'autocommit': True,}
+                'OPTIONS': {'autocommit': True, }
             }
         },
-        TIME_ZONE = 'US/Pacific'
+        TIME_ZONE='US/Pacific'
     )
 
 elif ENV_HOST == 'work.vanguardds.com':
     settings.configure(
-        DATABASES = {
+        DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
@@ -59,15 +59,15 @@ elif ENV_HOST == 'work.vanguardds.com':
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '127.0.0.1',
                 'PORT': '6432',
-                'OPTIONS': {'autocommit': True,}
+                'OPTIONS': {'autocommit': True, }
             }
         },
-        TIME_ZONE = 'US/Pacific'
+        TIME_ZONE='US/Pacific'
     )
 
 elif ENV_HOST == 'atisearch.com':
     settings.configure(
-        DATABASES = {
+        DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
@@ -75,15 +75,15 @@ elif ENV_HOST == 'atisearch.com':
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '127.0.0.1',
                 'PORT': '5432',
-                'OPTIONS': {'autocommit': True,}
+                'OPTIONS': {'autocommit': True, }
             }
         },
-        TIME_ZONE = 'US/Central'
+        TIME_ZONE='US/Central'
     )
 
 elif ENV_HOST == 'stage.atisearch.com':
     settings.configure(
-        DATABASES = {
+        DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal_staging',
@@ -91,10 +91,10 @@ elif ENV_HOST == 'stage.atisearch.com':
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '209.59.131.111',
                 'PORT': '5432',
-                'OPTIONS': {'autocommit': True,}
+                'OPTIONS': {'autocommit': True, }
             }
         },
-        TIME_ZONE = 'US/Central'
+        TIME_ZONE='US/Central'
     )
 
 from scrapeService.copied_models import ScheduledScrape
@@ -110,12 +110,14 @@ TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
 MIN_LOG_LEVEL = logging.WARNING
 LOGFILE = 'scrape_scheduler.log'
 
+
 def log(level, message, scheduled_scrape=None):
     if scheduled_scrape:
         logstr = "SchScrapeId: {0} ({1}) -- {2}".format(scheduled_scrape.id, scheduled_scrape.scrapesource.contract_name, message)
     else:
         logstr = message
     logging.log(level, logstr)
+
 
 def print_help():
     print "usage: %s [OPTIONS]" % sys.argv[0]
@@ -147,11 +149,11 @@ def process_scheduled_scrapes():
         now = datetime.now(tz)
         last_run = None
         if scheduled_scrape.last_run:
-            last_run = tz.fromutc(scheduled_scrape.last_run.replace(tzinfo=tz))
+            last_run = scheduled_scrape.last_run.replace(tzinfo=tz)
         scrape_url_format_dict = URL_FORMAT_DICT.copy()
 
         reget_ss = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
-        if (reget_ss.count() == 1):
+        if reget_ss.count() == 1:
             scheduled_scrape = reget_ss[0]
         else:
             # This scrape magically disappeared between the when we started & now
@@ -164,12 +166,17 @@ def process_scheduled_scrapes():
                 scheduled_scrape.time_of_day and last_run:
             time_of_day = scheduled_scrape.time_of_day.replace(tzinfo=tz)
             last_run_tod = datetime.combine(last_run.date(), scheduled_scrape.time_of_day)
-            now_tod = tz.fromutc(datetime.combine(now.date(), time_of_day).replace(tzinfo=tz))
+            now_tod = datetime.combine(now.date(), time_of_day).replace(tzinfo=tz)
             next_run_tod = None
-            if last_run > now_tod:
+            if now.date() > last_run.date():
+                if now.time() < last_run.time():
+                    next_run_tod = now_tod
+            else:
                 next_run_tod = now_tod + timedelta(days=1)
-            elif now_tod > now:
-                next_run_tod = now_tod
+            #if last_run > now_tod:
+            #    next_run_tod = now_tod + timedelta(days=1)
+            #elif now_tod > now:
+            #    next_run_tod = now_tod
             if next_run_tod:
                 log(logging.DEBUG, "Skipping because of time_of_day. Last run at {0:%Y-%m-%d %H:%M}. Next run on or after {1:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, next_run_tod), scheduled_scrape)
                 continue
@@ -222,7 +229,6 @@ def process_scheduled_scrapes():
         if DRY_RUN:
             continue
         # Now that we've filtered out all scrapes that *shouldn't* run, we should run the ones that pass through!
-        response = None
         try:
             response = requests.get(scrape_url)
         except Exception, ex:
@@ -230,7 +236,7 @@ def process_scheduled_scrapes():
             response = None
 
         scheduled_scrapes = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
-        if (scheduled_scrapes.count() == 1):
+        if scheduled_scrapes.count() == 1:
             scheduled_scrape = scheduled_scrapes[0]
         else:
             scheduled_scrape = None
