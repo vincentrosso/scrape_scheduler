@@ -2,6 +2,7 @@ __author__ = 'Steven Ogdahl'
 
 from vdsClientPortal.common import ChoiceBase
 
+
 class SystemAudit_types(ChoiceBase):
     ROBOT_JOB = "ROBOT JOB"
     ROBOT_ACTION = "ROBOT ACTION"

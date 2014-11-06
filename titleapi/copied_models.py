@@ -10,7 +10,12 @@ from vdsClientPortal.enums import SystemAudit_types
 from vdsClientPortal import workday
 import vdsWorkPortal.common.enums
 
+
 class County(models.Model):
+    class Meta:
+        app_label = 'titleapi'
+        verbose_name_plural = 'counties'
+
     state_short = models.CharField(max_length=2)
     county_name = models.CharField(max_length=200)
     fips = models.CharField(max_length=5)
