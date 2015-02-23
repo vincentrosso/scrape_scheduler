@@ -62,7 +62,7 @@ def post_request_execute(log, scheduled_scrape, response):
             cdsir.effective_date_business_days = None
             try:
                 cdsir.effective_date_exact = new_date
-                log(logging.DEBUG, "Setting CountyDataSourceIndexRange #{0}'s effective_date_exact to {1}".format(cdsir.pk, cdsir.effective_date_exact), scheduled_scrape)
+                log(logging.INFO, "Setting CountyDataSourceIndexRange #{0}'s effective_date_exact to {1}".format(cdsir.pk, cdsir.effective_date_exact), scheduled_scrape)
             except:
                 return (ScheduledScrape.WARNING, "Unparseable date '{0}': {1}".format(data_item, sys.exc_info()))
             cdsir.save()

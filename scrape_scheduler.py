@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.14'
+__version__ = '0.15'
 
 import sys
 import socket
@@ -148,9 +148,6 @@ def process_scheduled_scrapes():
     for scheduled_scrape in scheduled_scrapes:
         now = datetime.now(tz)
         last_run = None
-        if scheduled_scrape.last_run:
-            last_run = scheduled_scrape.last_run.replace(tzinfo=tz)
-        scrape_url_format_dict = URL_FORMAT_DICT.copy()
 
         reget_ss = ScheduledScrape.objects.filter(pk=scheduled_scrape.pk)
         if reget_ss.count() == 1:
@@ -159,6 +156,10 @@ def process_scheduled_scrapes():
             # This scrape magically disappeared between the when we started & now
             log(logging.INFO, "ScheduledScrape magically disappeared... skipping", scheduled_scrape)
             continue
+
+        if scheduled_scrape.last_run:
+            last_run = scheduled_scrape.last_run.replace(tzinfo=tz)
+        scrape_url_format_dict = URL_FORMAT_DICT.copy()
 
         # If this is a time-of-day-based scrape and the last time it was run is
         # between that time and now, then we can skip this scrape
@@ -169,7 +170,7 @@ def process_scheduled_scrapes():
             now_tod = datetime.combine(now.date(), time_of_day).replace(tzinfo=tz)
             next_run_tod = None
             if now.date() > last_run.date():
-                if now.time() < last_run.time():
+                if now.time() < last_run.time() and (now - last_run).days < 1:
                     next_run_tod = now_tod
             else:
                 next_run_tod = now_tod + timedelta(days=1)
@@ -194,7 +195,10 @@ def process_scheduled_scrapes():
             log(logging.DEBUG, "Skipping retry because of too many retries: ({0} >= {1}).".format(scheduled_scrape.retry_count, scheduled_scrape.max_retries), scheduled_scrape)
             continue
 
-        retry_interval = now - last_run
+        if last_run is None:
+            retry_interval = 0
+        else:
+            retry_interval = now - last_run
         if scheduled_scrape.last_status == ScheduledScrape.ERROR and \
                 scheduled_scrape.retry_timeout and \
                 retry_interval < timedelta(minutes=scheduled_scrape.retry_timeout):
@@ -289,7 +293,7 @@ if __name__ == "__main__":
                 elif arg[-1] in ('d', 'D'):
                     MIN_LOG_LEVEL = logging.DEBUG
                 else:
-                    print "unknown parameter '{0}' specified for -l.  Please use F, C, E, W, I, or D"
+                    print "unknown parameter '{0}' specified for -l.  Please use F, C, E, W, I, or D".format(arg[-1])
                     sys.exit(2)
             elif arg[:2] == '-L':
                 LOGFILE = arg[2:]
@@ -303,7 +307,7 @@ if __name__ == "__main__":
                 print_help()
                 sys.exit(1)
             elif arg in ('-v', '--version'):
-                print "%s version %s" % (sys.argv[0], __version__)
+                print "{0} version {1}".format(sys.argv[0], __version__)
                 sys.exit(1)
             else:
                 print "Unknown argument passed.  Please consult --help"
