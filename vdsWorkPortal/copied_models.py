@@ -24,6 +24,7 @@ class ScrapeSource(models.Model):
     url = models.TextField()
     urlFormat = models.TextField()
     county = models.ForeignKey(County, default=None, null=True, blank=True, verbose_name="County", related_name="+")
+    state = models.CharField(max_length=2, default=None, null=True, blank=True)
     type = models.TextField()
     is_enabled = models.BooleanField(default=True, blank=False, null=False, verbose_name="IsEnabled")
 
@@ -38,8 +39,17 @@ class ScrapeSource(models.Model):
 
     @staticmethod
     def filter_by_county(county, *args, **kwargs):
+        county_overrides_state = False
+        if 'county_overrides_state' in kwargs:
+            county_overrides_state = kwargs.pop('county_overrides_state')
+
         ss_list = ScrapeSource.objects.filter(Q(county=county) | Q(county__isnull=True, state=county.state_short)).\
             filter(*args, **kwargs).order_by('county__county_name')
+
+        # If there are county and state scrapes and 'county_overrides_state' is True, then filter out the state scrapes
+        if county_overrides_state and ss_list.filter(state__isnull=True).exists():
+            ss_list = ss_list.exclude(state__isnull=False)
+
         # Set the county and "readonly" for each of the scrape sources.  The "readonly" bit is so the scrape source
         # doesn't accidentally get overwritten (important for state-level scrapes)
         for ss in ss_list:
