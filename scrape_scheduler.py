@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.15'
+__version__ = '0.16'
 
 import sys
 import socket
@@ -63,38 +63,6 @@ elif ENV_HOST == 'work.vanguardds.com':
             }
         },
         TIME_ZONE='US/Pacific'
-    )
-
-elif ENV_HOST == 'atisearch.com':
-    settings.configure(
-        DATABASES={
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql_psycopg2',
-                'NAME': 'workportal',
-                'USER': 'workportal',
-                'PASSWORD': 'PYddT2rEk02d',
-                'HOST': '127.0.0.1',
-                'PORT': '5432',
-                'OPTIONS': {'autocommit': True, }
-            }
-        },
-        TIME_ZONE='US/Central'
-    )
-
-elif ENV_HOST == 'stage.atisearch.com':
-    settings.configure(
-        DATABASES={
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql_psycopg2',
-                'NAME': 'workportal_staging',
-                'USER': 'workportal_staging',
-                'PASSWORD': 'PYddT2rEk02d',
-                'HOST': '209.59.131.111',
-                'PORT': '5432',
-                'OPTIONS': {'autocommit': True, }
-            }
-        },
-        TIME_ZONE='US/Central'
     )
 
 from scrapeService.copied_models import ScheduledScrape
