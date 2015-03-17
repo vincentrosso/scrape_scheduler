@@ -4,6 +4,8 @@ import sys
 import logging
 from datetime import date
 
+from django.db.models import Q
+
 from scrapeService.copied_models import ScheduledScrape
 from titleapi.copied_models import CountyDataSourceIndexRange
 
@@ -32,7 +34,8 @@ def post_request_execute(log, scheduled_scrape, response):
         data = [data]
 
     cdsir_objs = CountyDataSourceIndexRange.objects.filter(
-        county_data_source__county=scheduled_scrape.scrapesource.county
+        Q(county_data_source__county=scheduled_scrape.scrapesource.county) |
+        Q(county_data_source__county__state_short=scheduled_scrape.scrapesource.state)
     )
 
     if scheduled_scrape.parameters:
