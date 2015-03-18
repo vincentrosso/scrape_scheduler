@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.18'
+__version__ = '0.19'
 
 import sys
 import socket
@@ -18,6 +18,7 @@ from django.conf import settings
 
 if ENV_HOST == 'Lynx':
     settings.configure(
+        ENV_HOST = ENV_HOST,
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
@@ -34,6 +35,7 @@ if ENV_HOST == 'Lynx':
 
 elif ENV_HOST == 'stage.vanguardds.com':
     settings.configure(
+        ENV_HOST = ENV_HOST,
         DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
@@ -50,6 +52,7 @@ elif ENV_HOST == 'stage.vanguardds.com':
 
 elif ENV_HOST == 'work.vanguardds.com':
     settings.configure(
+        ENV_HOST = ENV_HOST,
         DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
