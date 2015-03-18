@@ -1,12 +1,11 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.17'
+__version__ = '0.18'
 
 import sys
 import socket
 import logging
 import uuid
-import requests
 import re
 import pytz
 import os
@@ -203,7 +202,9 @@ def process_scheduled_scrapes():
             continue
         # Now that we've filtered out all scrapes that *shouldn't* run, we should run the ones that pass through!
         try:
-            response = requests.get(scrape_url)
+            response = scheduled_scrape.scrapesource.execute(
+                parameters=scrape_url_format_dict
+            )
         except:
             import traceback
             log(logging.ERROR, "request.get failed with the following exception: {0}".format(traceback.format_exc()), scheduled_scrape)
