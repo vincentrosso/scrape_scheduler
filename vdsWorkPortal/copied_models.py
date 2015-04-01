@@ -140,6 +140,8 @@ class ScrapeSource(models.Model):
         # Hack for now -- this could be a bit cleaner
         if synchronous:
             self.formatted_url = self.formatted_url.replace("/scrape/", "/scrape_sync/")
+        else:
+            self.formatted_url = self.formatted_url.replace("/scrape_sync/", "/scrape/")
 
         s_data = ""
         try:
