@@ -48,12 +48,15 @@ def post_request_execute(log, scheduled_scrape, response):
             index_subtype__regex=(matchers[4] if len(matchers) > 4 else '.*')
         )
 
-    cdsir_list = cdsir_objs.all()
-
     for data_item in data:
         new_date = date(day=data_item['day'], month=data_item['month'], year=data_item['year'])
 
         any_found = False
+
+        if 'county' in data_item:
+            cdsir_list = cdsir_objs.filter(county_data_source__county__county_name=data_item['county'])
+        else:
+            cdsir_list = cdsir_objs
 
         for cdsir in cdsir_list:
             # This is not of the type we're looking for
