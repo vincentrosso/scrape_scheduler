@@ -54,7 +54,7 @@ def post_request_execute(log, scheduled_scrape, response):
         any_found = False
 
         if 'county' in data_item:
-            cdsir_list = cdsir_objs.filter(county_data_source__county__county_name=data_item['county'])
+            cdsir_list = cdsir_objs.filter(county_data_source__county__county_name__iexact=data_item['county'])
         else:
             cdsir_list = cdsir_objs
 
