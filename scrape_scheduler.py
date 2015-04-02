@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.21'
+__version__ = '0.22'
 
 import sys
 import socket
@@ -206,7 +206,8 @@ def process_scheduled_scrapes():
         # Now that we've filtered out all scrapes that *shouldn't* run, we should run the ones that pass through!
         try:
             response = scheduled_scrape.scrapesource.execute(
-                parameters=scrape_url_format_dict
+                parameters=scrape_url_format_dict,
+                synchronous=True
             )
         except:
             import traceback
