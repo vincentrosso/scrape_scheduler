@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.22'
+__version__ = '0.23'
 
 import sys
 import socket
@@ -128,16 +128,16 @@ def process_scheduled_scrapes():
             continue
 
         if scheduled_scrape.last_run:
-            last_run = scheduled_scrape.last_run.replace(tzinfo=tz)
+            last_run = tz.localize(scheduled_scrape.last_run)
         scrape_url_format_dict = URL_FORMAT_DICT.copy()
 
         # If this is a time-of-day-based scrape and the last time it was run is
         # between that time and now, then we can skip this scrape
         if scheduled_scrape.last_status != ScheduledScrape.ERROR and \
                 scheduled_scrape.time_of_day and last_run:
-            time_of_day = scheduled_scrape.time_of_day.replace(tzinfo=tz)
-            last_run_tod = datetime.combine(last_run.date(), scheduled_scrape.time_of_day)
-            now_tod = datetime.combine(now.date(), time_of_day).replace(tzinfo=tz)
+            time_of_day = scheduled_scrape.time_of_day
+            last_run_tod = tz.localize(datetime.combine(last_run.date(), scheduled_scrape.time_of_day))
+            now_tod = tz.localize(datetime.combine(now.date(), time_of_day))
             next_run_tod = None
             if now.date() > last_run.date():
                 if now.time() < last_run.time() and (now - last_run).days < 1:
@@ -155,8 +155,13 @@ def process_scheduled_scrapes():
         # If this is a frequency-based scrape and we last ran it more
         # recently than the frequency, then we can skip this scrape
         if scheduled_scrape.last_status != ScheduledScrape.ERROR and \
-                scheduled_scrape.frequency and last_run and now - last_run < scheduled_scrape.frequency_timedelta:
-            log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(scheduled_scrape.last_run, (now - last_run).total_seconds(), scheduled_scrape.frequency_timedelta.total_seconds(), scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta), scheduled_scrape)
+                scheduled_scrape.frequency and last_run and (now - last_run).total_seconds() < scheduled_scrape.frequency_timedelta.total_seconds():
+            log(logging.DEBUG, "Skipping because of frequency ({1:0.0f} < {2:0.0f}). Last run at {0:%Y-%m-%d %H:%M}. Next run on or after: {3:%Y-%m-%d %H:%M}.".format(
+                scheduled_scrape.last_run,
+                (now - last_run).total_seconds(),
+                scheduled_scrape.frequency_timedelta.total_seconds(),
+                scheduled_scrape.last_run + scheduled_scrape.frequency_timedelta
+            ), scheduled_scrape)
             continue
 
         if scheduled_scrape.last_status == ScheduledScrape.ERROR and \
