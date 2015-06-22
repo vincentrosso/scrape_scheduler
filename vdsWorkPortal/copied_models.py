@@ -2,11 +2,13 @@ __author__ = 'Steven Ogdahl'
 
 from datetime import datetime
 import json
+import pytz
+import re
 import requests
-import socket
 from simplejson import JSONDecodeError
-from time import strftime
-from urllib2 import urlopen
+from threading import Timer
+import urllib
+import urlparse
 
 from django.conf import settings
 from django.db import models
@@ -50,10 +52,18 @@ class ScrapeSource(models.Model):
     state = models.CharField(max_length=2, default=None, null=True, blank=True)
     type = models.TextField()
     is_enabled = models.BooleanField(default=True, blank=False, null=False, verbose_name="IsEnabled")
+    max_retries = models.PositiveSmallIntegerField(default=0, blank=False, null=False, verbose_name="Maximum retries")
+    retry_delay = models.PositiveSmallIntegerField(default=0, blank=False, null=False, verbose_name= "Retry delay (seconds)")
+    scaling_pool = models.CharField(max_length=100, default='', null=False, blank=True)
 
     _readonly = False
     formatted_url = None
     response = None
+    scrape_log = None
+
+    @property
+    def is_synchronous(self):
+        return '/scrape_sync/' in self.urlFormat
 
     def save(self, *args, **kwargs):
         if self._readonly:
@@ -99,8 +109,9 @@ class ScrapeSource(models.Model):
     @staticmethod
     def list_contracts_by_county(county):
         available = []
-        scrapes = ScrapeSource.filter_by_county(county, is_enabled=True)
+        scrapes = ScrapeSource.filter_by_county(county, is_enabled=True).order_by('contract_name')
         contracts = vdsWorkPortal.common.enums.scrape_contract_type().as_list()
+        contracts.sort()
         for s in scrapes:
             for c in contracts:
                 if c in s.contract_name:
@@ -125,6 +136,9 @@ class ScrapeSource(models.Model):
             'state': self.state,
             'type': self.type,
             'is_enabled': self.is_enabled,
+            'max_retries': self.max_retries,
+            'retry_delay': self.retry_delay,
+            'scaling_pool': self.scaling_pool,
             'str': str(self)
         }
 
@@ -158,27 +172,18 @@ class ScrapeSource(models.Model):
             scrape_log.request_data = data
         scrape_log.save()
         try:
-            if settings.ENV_HOST == 'stage.vanguardds.com':
+            if settings.ENV_HOST in ('stage.vanguardds.com', 'Lynx', 'sogdahl-Vanguard'):
                 if type(data) is dict:
-                    data['postback_url'] = settings.BASE_URL
-                self.formatted_url = "{0}{1}postback_url={2}/".format(
-                    self.formatted_url,
-                    '&' if '?' in self.formatted_url else '?',
-                    settings.BASE_URL
-                )
-            elif settings.ENV_HOST == 'Lynx' and type(data) is dict:
-                data['postback_url'] = 'http://xerxes.darktech.org:4080/'
-                print self.formatted_url, method, data
-            elif settings.ENV_HOST == 'sogdahl-Vanguard':
-                if type(data) is dict:
-                    data['postback_url'] = 'http://xerxes.darktech.org:10080/'
-                    scrape_log.request_data = data
+                    data['postback_url'] = '{0}/'.format(settings.BASE_URL)
+                    self.scrape_log.request_data = data
                 else:
-                    self.formatted_url += "&postback_url=http://xerxes.darktech.org:10080/"
-                    scrape_log.request_url = self.formatted_url
-                print self.formatted_url, method, data
-
-            if socket.gethostname() == "VPro.local" or socket.gethostname() == "web346.webfaction.com":
+                    self.formatted_url = "{0}{1}postback_url={2}/".format(
+                        self.formatted_url,
+                        '&' if '?' in self.formatted_url else '?',
+                        settings.BASE_URL
+                    )
+                    self.scrape_log.request_url = self.formatted_url
+            if settings.ENV_HOST in ("VPro.local", "web346.webfaction.com"):
                 #data['postback_url'] = 'https://work.vanguardds.com/'
                 self.formatted_url += "&postback_url=https://work.vanguardds.com/"
                 scrape_log.request_url = self.formatted_url
@@ -187,11 +192,14 @@ class ScrapeSource(models.Model):
                 else:
                     self.response = requests.get(self.formatted_url)
             else:
+                v = {}
+                if 'titleapi.com' in self.url:
+                    v = {'verify': '/usr/local/ssl/cacert.pem'}
                 #celery broken for the moment
                 if method is not None and "POST" in method:
-                    self.response = requests.post(self.formatted_url, data=json.dumps(data))
+                    self.response = requests.post(self.formatted_url, data=json.dumps(data), **v)
                 else:
-                    self.response = requests.get(self.formatted_url)
+                    self.response = requests.get(self.formatted_url, **v)
             SystemAudit_add("scrape.execute {0} {1}".format(self.formatted_url, s_data), SystemAudit_types.ROBOT_ACTION)
 
             try:
@@ -256,7 +264,54 @@ class ScrapeSourceLog(models.Model):
             if 'message' in json_body:
                 self.response_message = json_body['message'] or ''
         self.status = ScrapeSourceLog.STATUS__COMPLETED
-        self.completed_timestamp = datetime.now()
+        self.completed_timestamp = datetime.now(tz=pytz.timezone(settings.TIME_ZONE))
+
+        self.status = ScrapeSourceLog.STATUS__COMPLETED
+        # Determine if the scrape needs to be retried
+        # TODO : need logic here to determine retry
+        if self.response_status != "OK" and (
+                        'Decaptcha failed too many times' in self.response_message or
+                        'CAPTCHA was rejected due to service overload' in self.response_message or
+                        'Could not solve captcha!' in self.response_message or
+                        'Website timed out, please try again' in self.response_message
+        ):
+            retry = 0
+            retry_index = -1
+            # We need to first check if we're over max retries.  If we're not, then we need to add the "__retries"
+            # querystring parameter with the retry count or, if it exists, increment it.  After this step, we then
+            # recombine the parsed URL back into the proper string version again
+            url = urlparse.urlparse(self.request_url)
+            qs = urlparse.parse_qsl(url.query, keep_blank_values=True)
+            for i in xrange(len(qs)):
+                if qs[i][0] == '__retry':
+                    retry = int(''.join(re.findall(r'\d+', qs[i][1])) or 0)
+                    retry_index = i
+            if retry_index >= 0:
+                qs.pop(retry_index)
+            qs.append(('__retry', retry + 1))
+
+            # If we're still under the max retries, then we can execute a new scrape with the __retry count increased
+            # by 1
+            if self.scrape_source.max_retries > 0 and retry < self.scrape_source.max_retries:
+                self.status = ScrapeSourceLog.STATUS__RETRY
+
+                scrape = self.scrape_source
+                url_parts = list(url)
+                url_parts[4] = urllib.urlencode(qs)
+                scrape.urlFormat = urlparse.urlunparse(url_parts)
+                data = None
+                if self.request_data:
+                    data = json.loads(self.request_data)
+
+                timer = Timer(scrape.retry_delay, scrape.execute, kwargs={
+                    'method': self.request_method,
+                    'data': data,
+                    'parameters': None,
+                    'synchronous': 'scrape_sync' in self.request_url,
+                    'report': self.report
+                })
+                timer.start()
+
         self.save()
 
     @property
