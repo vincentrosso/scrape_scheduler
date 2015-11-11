@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.24'
+__version__ = '0.25'
 
 import sys
 import socket
@@ -80,6 +80,7 @@ TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
 MIN_LOG_LEVEL = logging.WARNING
 LOGFILE = 'scrape_scheduler.log'
 
+logging.getLogger("requests").setLevel(logging.WARNING)
 
 def log(level, message, scheduled_scrape=None):
     if scheduled_scrape:
