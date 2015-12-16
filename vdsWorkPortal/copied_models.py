@@ -163,16 +163,16 @@ class ScrapeSource(models.Model):
         except Exception:
             pass
 
-        scrape_log = ScrapeSourceLog()
-        scrape_log.scrape_source = self
-        scrape_log.request_url = self.formatted_url
+        self.scrape_log = ScrapeSourceLog()
+        self.scrape_log.scrape_source = self
+        self.scrape_log.request_url = self.formatted_url
         if method:
-            scrape_log.request_method = method
+            self.scrape_log.request_method = method
         if data:
-            scrape_log.request_data = data
-        scrape_log.save()
+            self.scrape_log.request_data = data
+        self.scrape_log.save()
         try:
-            if settings.ENV_HOST in ('stage.vanguardds.com', 'Lynx', 'sogdahl-Vanguard'):
+            if settings.ENV_HOST in ('sm1', 'sm1.vanguardds.com', 'stage.vanguardds.com', 'Lynx', 'sogdahl-Vanguard'):
                 if type(data) is dict:
                     data['postback_url'] = '{0}/'.format(settings.BASE_URL)
                     self.scrape_log.request_data = data
@@ -186,7 +186,7 @@ class ScrapeSource(models.Model):
             if settings.ENV_HOST in ("VPro.local", "web346.webfaction.com"):
                 #data['postback_url'] = 'https://work.vanguardds.com/'
                 self.formatted_url += "&postback_url=https://work.vanguardds.com/"
-                scrape_log.request_url = self.formatted_url
+                self.scrape_log.request_url = self.formatted_url
                 if method is not None and "POST" in method:
                     self.response = requests.post(self.formatted_url, data=json.dumps(data))
                 else:
@@ -206,18 +206,18 @@ class ScrapeSource(models.Model):
                 response_json = self.response.json()
                 status = response_json['status']
                 token = response_json['track_id']
-                scrape_log.response_message = response_json.get('message')
+                self.scrape_log.response_message = response_json.get('message')
             except JSONDecodeError:
                 status, token = self.response.text.split(", ")
-            scrape_log.status = ScrapeSourceLog.STATUS__SUBMITTED
-            scrape_log.response_status = status
-            scrape_log.token = token
+            self.scrape_log.status = ScrapeSourceLog.STATUS__SUBMITTED
+            self.scrape_log.response_status = status
+            self.scrape_log.token = token
             # Currently, this is the only way to tell if it's still running or it waited to return.  "status" needs
             # to be more descriptive from the scrape server's side
             if "/scrape_sync/" in self.formatted_url:
-                scrape_log.complete(self.response.text)
+                self.scrape_log.complete(self.response.text)
             else:
-                scrape_log.save()
+                self.scrape_log.save()
 
         except Exception, err:
             SystemAudit_add("Error in scrape.execute scrape: {0} {1} error: {2}".format(self.formatted_url, s_data, err), SystemAudit_types.ROBOT_ACTION_ERROR)
