@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.25'
+__version__ = '0.26'
 
 import sys
 import socket
@@ -52,6 +52,42 @@ elif ENV_HOST == 'stage.vanguardds.com':
 
 elif ENV_HOST == 'work.vanguardds.com':
     settings.configure(
+        ENV_HOST = ENV_HOST,
+        DATABASES={
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql_psycopg2',
+                'NAME': 'workportal',
+                'USER': 'workportal',
+                'PASSWORD': 'PYddT2rEk02d',
+                'HOST': '127.0.0.1',
+                'PORT': '6432',
+                'OPTIONS': {'autocommit': True, }
+            }
+        },
+        TIME_ZONE='US/Pacific'
+    )
+
+elif ENV_HOST in ('sm1', 'sm1.vanguardds.com'):
+    settings.configure(
+        BASE_URL = "https://work.vanguardds.com",
+        ENV_HOST = ENV_HOST,
+        DATABASES={
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql_psycopg2',
+                'NAME': 'workportal',
+                'USER': 'workportal',
+                'PASSWORD': 'PYddT2rEk02d',
+                'HOST': '127.0.0.1',
+                'PORT': '6432',
+                'OPTIONS': {'autocommit': True, }
+            }
+        },
+        TIME_ZONE='US/Pacific'
+    )
+
+elif ENV_HOST in ('sm2', 'sm2.vanguardds.com'):
+    settings.configure(
+        BASE_URL = "https://test.vanguardds.com",
         ENV_HOST = ENV_HOST,
         DATABASES={
             'default': {
