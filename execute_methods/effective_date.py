@@ -7,7 +7,7 @@ from datetime import date
 from django.db.models import Q
 
 from scrapeService.copied_models import ScheduledScrape
-from titleapi.copied_models import CountyDataSourceIndexRange
+from titleapi.copied_models import County, CountyDataSourceIndexRange
 
 def pre_request_execute(log, scheduled_scrape):
     return (ScheduledScrape.UNKNOWN, {})
@@ -54,7 +54,9 @@ def post_request_execute(log, scheduled_scrape, response):
         any_found = False
 
         if 'county' in data_item:
-            cdsir_list = cdsir_objs.filter(county_data_source__county__county_name__iexact=data_item['county'])
+            real_county = County.find_by_name(data_item['county'], scheduled_scrape.scrapesource.state)
+            real_county_name = real_county.county_name if real_county else data_item['county']
+            cdsir_list = cdsir_objs.filter(county_data_source__county__county_name__iexact=real_county_name)
         else:
             cdsir_list = cdsir_objs
 
@@ -74,6 +76,6 @@ def post_request_execute(log, scheduled_scrape, response):
             cdsir.save()
 
         if not any_found:
-            log(logging.WARNING, "Could not find any associated CountyDataSourceIndexRange for: {0}".format(new_date), scheduled_scrape)
+            log(logging.WARNING, "Could not find any associated CountyDataSourceIndexRange for: {0}".format(data_item), scheduled_scrape)
 
     return (ScheduledScrape.SUCCESS, "Success")
